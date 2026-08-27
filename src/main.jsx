@@ -106,14 +106,16 @@ function App() {
         },
         ...previous
       ].slice(0, 30));
-    } catch (error) {
+        } catch (error) {
+      console.error(error);
+
       setAnswer(
-        "Não foi possível consultar a IA agora. Quando colocarmos o projeto na Netlify, vamos configurar a chave do Gemini para ativar essa função."
+        "ERRO: " +
+        (error?.message || "Não foi possível consultar a IA.")
       );
     } finally {
       setLoading(false);
     }
-  }
 
   function createGroup() {
     const newGroup = groupName.trim();
