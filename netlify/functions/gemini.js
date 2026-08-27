@@ -1,25 +1,11 @@
-export default async (req) => {
+export default async (request) => {
   try {
-    if (req.httpMethod !== "POST") {
-      return new Response(
-        JSON.stringify({
-          error: "A função está funcionando, mas recebeu GET em vez de POST."
-        }),
-        {
-          status: 405,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return new Response(
         JSON.stringify({
-          error: "ERRO: GEMINI_API_KEY não está disponível para a Function."
+          error: "GEMINI_API_KEY não encontrada na Netlify."
         }),
         {
           status: 500,
@@ -30,8 +16,22 @@ export default async (req) => {
       );
     }
 
-    const body = JSON.parse(req.body || "{}");
-    const query = body.query || "Responda apenas: API funcionando.";
+    const body = await request.json();
+    const query = body?.query;
+
+    if (!query) {
+      return new Response(
+        JSON.stringify({
+          error: "Nenhuma pergunta foi enviada."
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
 
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
@@ -60,9 +60,9 @@ export default async (req) => {
     if (!response.ok) {
       return new Response(
         JSON.stringify({
-          error: "Gemini rejeitou a solicitação.",
+          error: "Erro retornado pelo Gemini.",
           status: response.status,
-          message: data?.error?.message || "Sem mensagem de erro."
+          message: data?.error?.message || "Erro desconhecido."
         }),
         {
           status: 500,
@@ -79,8 +79,7 @@ export default async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: "API funcionando!",
-        answer: answer || "Gemini respondeu sem texto."
+        answer: answer || "O Gemini não retornou texto."
       }),
       {
         status: 200,
