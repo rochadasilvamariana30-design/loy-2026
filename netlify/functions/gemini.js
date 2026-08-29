@@ -1,106 +1,101 @@
-export default async (request) => {
+// netlify/functions/gemini.js
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  const { pergunta } = JSON.parse(event.body || "{}");
+
+  if (!pergunta || !pergunta.trim()) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Pergunta vazia." }),
+    };
+  }
+
+  const API_KEY = process.env.GEMINI_API_KEY;
+  const MODEL = "gemini-2.5-flash"; // ou o modelo que vocês já usam
+
+  const systemInstruction = `
+Você é um assistente jurídico. Responda APENAS com base em resultados reais de busca (Google Search grounding).
+
+REGRAS OBRIGATÓRIAS:
+1. NUNCA cite artigo, lei ou jurisprudência que não tenha vindo de uma fonte real encontrada na busca.
+2. NUNCA invente número de artigo, nome de lei, data ou link.
+3. Toda citação DEVE vir acompanhada da fonte (nome do site/publicação).
+4. Se a busca não retornar nenhuma fonte confiável e relevante à pergunta, responda apenas:
+"Infelizmente não encontramos esse artigo :("
+5. Você pode explicar/traduzir para linguagem simples o conteúdo encontrado, mas sem adicionar fatos que não estejam nas fontes.
+6. Não dê opinião jurídica pessoal nem preveja resultado de processo.
+7. Foque apenas em leis, artigos e explicações — nada de conteúdo fora do escopo jurídico.
+`;
+
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({
-          error: "GEMINI_API_KEY não encontrada na Netlify."
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
-    const body = await request.json();
-    const query = body?.query;
-
-    if (!query) {
-      return new Response(
-        JSON.stringify({
-          error: "Nenhuma pergunta foi enviada."
-        }),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" +
-        encodeURIComponent(apiKey),
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "x-goog-api-key": API_KEY,
         },
         body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemInstruction }],
+          },
           contents: [
             {
-              parts: [
-                {
-                  text: query
-                }
-              ]
-            }
-          ]
-        })
+              role: "user",
+              parts: [{ text: pergunta }],
+            },
+          ],
+          tools: [{ google_search: {} }],
+          generationConfig: {
+            temperature: 0, // reduz criatividade/alucinação ao máximo
+          },
+        }),
       }
     );
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({
-          error: "Erro retornado pelo Gemini.",
-          status: response.status,
-          message: data?.error?.message || "Erro desconhecido."
+    const candidate = data?.candidates?.[0];
+    const groundingChunks =
+      candidate?.groundingMetadata?.groundingChunks || [];
+
+    // Regra chave: se não veio NENHUMA fonte real, não confiamos no texto do modelo.
+    if (groundingChunks.length === 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          texto: "Infelizmente não encontramos esse artigo :(",
+          fontes: [],
         }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      };
     }
 
-    const answer =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const texto = candidate?.content?.parts?.map((p) => p.text).join("") || "";
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        answer: answer || "O Gemini não retornou texto."
-      }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    const fontes = groundingChunks
+      .map((chunk) => ({
+        titulo: chunk?.web?.title || "Fonte",
+        url: chunk?.web?.uri || null,
+      }))
+      .filter((f) => f.url);
 
-  } catch (error) {
-    return new Response(
-      JSON.stringify({
-        error: "Erro na Function.",
-        message: error?.message || "Erro desconhecido."
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ texto, fontes }),
+    };
+  } catch (err) {
+    console.error("Erro Gemini:", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        texto: "Infelizmente não encontramos esse artigo :(",
+        fontes: [],
       }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    };
   }
 };
