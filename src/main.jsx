@@ -1,101 +1,141 @@
-```jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 /* =========================================================
-   MODOS DE PESQUISA
+   CONFIGURAÇÕES
 ========================================================= */
 
 const modes = [
   {
     id: "juridica",
     name: "Pesquisas Jurídicas",
-    icon: "⚖"
+    icon: "⚖",
+    description: "Leis, jurisprudência, súmulas e normas"
   },
   {
     id: "academica",
     name: "Artigos Acadêmicos",
-    icon: "▤"
+    icon: "▤",
+    description: "Pesquisa para TCC, artigos e trabalhos"
   },
   {
     id: "outros",
     name: "Outros",
-    icon: "✦"
+    icon: "✦",
+    description: "Dúvidas e explicações sobre Direito"
   }
 ];
-
-/* =========================================================
-   PERFIL
-========================================================= */
 
 const profileTypes = [
   "Estudante de Direito",
-  "Pesquisador(a)",
-  "Advogado(a)",
-  "Profissional do Direito",
-  "Professor(a)",
+  "Pesquisador",
+  "Advogado",
+  "Professor",
+  "Servidor público",
   "Outro"
 ];
 
+const examples = {
+  juridica: [
+    "O que é responsabilidade civil objetiva?",
+    "Explique a diferença entre dolo e culpa.",
+    "Como funciona a LGPD?"
+  ],
+  academica: [
+    "Artigos acadêmicos sobre responsabilidade civil",
+    "Pesquisa sobre inteligência artificial no Direito",
+    "Doutrina sobre direitos fundamentais"
+  ],
+  outros: [
+    "Explique o princípio da legalidade.",
+    "Qual a diferença entre prescrição e decadência?",
+    "Explique o que é hermenêutica jurídica."
+  ]
+};
+
 /* =========================================================
-   ÁREAS JURÍDICAS
+   ARTIGOS / FONTES
 ========================================================= */
 
-const legalAreas = [
-  "Todas as áreas",
-  "Direito Constitucional",
-  "Direito Civil",
-  "Direito Penal",
-  "Direito Processual",
-  "Direito do Trabalho",
-  "Direito Empresarial",
-  "Direito Tributário",
-  "Direito Administrativo",
-  "Direito Digital",
-  "Direito do Consumidor",
-  "Direito Internacional",
-  "Direito Previdenciário"
+const articles = [
+  {
+    id: "artigo-001",
+    title: "Pesquisa de legislação e normas jurídicas",
+    description:
+      "Consulte legislação brasileira e documentos jurídicos por meio de uma fonte pública de referência.",
+    source: "LexML Brasil",
+    category: "Legislação",
+    url: "https://www.lexml.gov.br/"
+  },
+  {
+    id: "artigo-002",
+    title: "Pesquisa de jurisprudência do STF",
+    description:
+      "Acesse decisões, processos e jurisprudência diretamente no portal oficial do Supremo Tribunal Federal.",
+    source: "Supremo Tribunal Federal",
+    category: "Jurisprudência",
+    url: "https://jurisprudencia.stf.jus.br/"
+  },
+  {
+    id: "artigo-003",
+    title: "Pesquisa de jurisprudência do STJ",
+    description:
+      "Consulte jurisprudência e decisões diretamente no portal oficial do Superior Tribunal de Justiça.",
+    source: "Superior Tribunal de Justiça",
+    category: "Jurisprudência",
+    url: "https://scon.stj.jus.br/SCON/"
+  },
+  {
+    id: "artigo-004",
+    title: "Portal de periódicos científicos",
+    description:
+      "Base para localizar produção científica e artigos acadêmicos relevantes para pesquisas.",
+    source: "SciELO",
+    category: "Artigos acadêmicos",
+    url: "https://www.scielo.org/"
+  }
 ];
 
 /* =========================================================
-   EXEMPLOS
+   UTILITÁRIOS
 ========================================================= */
 
-const examples = [
-  "O que é responsabilidade civil objetiva?",
-  "Explique a diferença entre dolo e culpa.",
-  "Como funciona a LGPD?"
-];
-
-/* =========================================================
-   FUNÇÕES AUXILIARES
-========================================================= */
-
-function createId(prefix) {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return `${prefix}_${crypto.randomUUID()}`;
+function generateId(prefix = "id") {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return `${prefix}-${crypto.randomUUID()}`;
   }
 
-  return `${prefix}_${Date.now()}_${Math.random()
+  return `${prefix}-${Date.now()}-${Math.random()
     .toString(36)
-    .slice(2)}`;
+    .substring(2, 10)}`;
 }
 
 function loadJSON(key, fallback) {
   try {
-    const value = localStorage.getItem(key);
+    const saved = localStorage.getItem(key);
 
-    if (!value) {
+    if (!saved) {
       return fallback;
     }
 
-    return JSON.parse(value);
+    return JSON.parse(saved);
   } catch {
     return fallback;
+  }
+}
+
+function formatDate(dateValue) {
+  try {
+    return new Date(dateValue).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return "";
   }
 }
 
@@ -104,28 +144,17 @@ function loadJSON(key, fallback) {
 ========================================================= */
 
 function App() {
-  /* =======================================================
-     NAVEGAÇÃO
-  ======================================================= */
-
-  const [activePage, setActivePage] = useState("pesquisa");
-
-  /* =======================================================
-     PESQUISA
-  ======================================================= */
-
   const [mode, setMode] = useState("juridica");
+
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /* =======================================================
-     MODAIS
-  ======================================================= */
-
   const [profileOpen, setProfileOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [articlesOpen, setArticlesOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   /* =======================================================
      PERFIL
@@ -133,17 +162,23 @@ function App() {
 
   const [profile, setProfile] = useState(() =>
     loadJSON("loy-profile", {
-      userId: createId("user"),
+      id: generateId("user"),
       name: "Estudante",
-      username: "",
-      email: "",
       type: "Estudante de Direito",
-      area: "",
-      bio: ""
+      institution: "",
+      course: "Direito"
     })
   );
 
-  const [profileForm, setProfileForm] = useState(profile);
+  const [profileDraft, setProfileDraft] = useState(profile);
+
+  /* =======================================================
+     HISTÓRICO DE CHAT
+  ======================================================= */
+
+  const [history, setHistory] = useState(() =>
+    loadJSON("loy-chat-history", [])
+  );
 
   /* =======================================================
      GRUPOS
@@ -154,50 +189,23 @@ function App() {
   );
 
   const [newGroup, setNewGroup] = useState("");
-
-  /* =======================================================
-     CHAT COMPARTILHADO
-  ======================================================= */
-
-  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMessage, setGroupMessage] = useState("");
 
   /* =======================================================
-     HISTÓRICO
-  ======================================================= */
-
-  const [history, setHistory] = useState(() =>
-    loadJSON("loy-history", [])
-  );
-
-  /* =======================================================
-     ARTIGOS
-  ======================================================= */
-
-  const [articleSearch, setArticleSearch] = useState("");
-  const [articleArea, setArticleArea] = useState("Todas as áreas");
-
-  /*
-     Estrutura preparada para artigos reais.
-
-     Não colocamos artigos inventados aqui.
-     Quando conectarmos uma fonte/API real, os resultados
-     poderão ser inseridos nesta estrutura.
-  */
-  const [articles, setArticles] = useState(() =>
-    loadJSON("loy-articles", [])
-  );
-
-  /* =======================================================
-     PERSISTÊNCIA
+     SALVAMENTO
   ======================================================= */
 
   useEffect(() => {
-    localStorage.setItem(
-      "loy-profile",
-      JSON.stringify(profile)
-    );
+    localStorage.setItem("loy-profile", JSON.stringify(profile));
   }, [profile]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "loy-chat-history",
+      JSON.stringify(history)
+    );
+  }, [history]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -206,95 +214,35 @@ function App() {
     );
   }, [groups]);
 
-  useEffect(() => {
-    localStorage.setItem(
-      "loy-history",
-      JSON.stringify(history)
-    );
-  }, [history]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "loy-articles",
-      JSON.stringify(articles)
-    );
-  }, [articles]);
-
   /* =======================================================
-     PERFIL
+     DADOS DERIVADOS
   ======================================================= */
 
-  function openProfile() {
-    setProfileForm(profile);
-    setProfileOpen(true);
-  }
+  const currentMode = useMemo(
+    () => modes.find((item) => item.id === mode),
+    [mode]
+  );
 
-  function updateProfileField(field, value) {
-    setProfileForm((current) => ({
-      ...current,
-      [field]: value
-    }));
-  }
+  const currentExamples = examples[mode] || [];
 
-  function saveProfile() {
-    const updatedProfile = {
-      ...profileForm,
-
-      userId: profile.userId,
-
-      name:
-        profileForm.name.trim() ||
-        "Estudante",
-
-      username:
-        profileForm.username.trim(),
-
-      email:
-        profileForm.email.trim(),
-
-      type:
-        profileForm.type ||
-        "Estudante de Direito",
-
-      area:
-        profileForm.area.trim(),
-
-      bio:
-        profileForm.bio.trim()
-    };
-
-    setProfile(updatedProfile);
-    setProfileForm(updatedProfile);
-    setProfileOpen(false);
-  }
-
-  function getInitial() {
-    const name = profile.name?.trim();
-
-    if (!name) {
-      return "L";
-    }
-
-    return name.charAt(0).toUpperCase();
-  }
+  const userInitial = profile.name
+    ? profile.name.charAt(0).toUpperCase()
+    : "L";
 
   /* =======================================================
-     NAVEGAR PARA UMA PÁGINA
+     NAVEGAÇÃO
   ======================================================= */
 
-  function navigate(page) {
-    setActivePage(page);
+  function goHome() {
+    setQuestion("");
+    setAnswer("");
+    setSelectedGroup(null);
 
-    setProfileOpen(false);
-    setGroupsOpen(false);
-    setHistoryOpen(false);
-
-    window.setTimeout(() => {
-      window.scrollTo({
-        top: 0,
+    document
+      .getElementById("pesquisa")
+      ?.scrollIntoView({
         behavior: "smooth"
       });
-    }, 50);
   }
 
   /* =======================================================
@@ -304,7 +252,7 @@ function App() {
   async function search(text = question) {
     const query = text.trim();
 
-    if (!query) {
+    if (!query || loading) {
       return;
     }
 
@@ -331,41 +279,36 @@ function App() {
 
       if (!response.ok) {
         throw new Error(
-          data.error ||
-            "Erro ao consultar a IA."
+          data.error || "Erro ao consultar a IA."
         );
       }
 
-      const generatedAnswer =
+      const result =
         data.answer ||
         "A IA não retornou uma resposta.";
 
-      setAnswer(generatedAnswer);
+      setAnswer(result);
 
-      /* ================================================
-         HISTÓRICO PESSOAL
-      ================================================ */
+      /* -----------------------------------------------
+         SALVA A CONVERSA
+      ------------------------------------------------ */
 
-      const historyItem = {
-        id: createId("chat"),
-        userId: profile.userId,
+      const chat = {
+        id: generateId("chat"),
+        userId: profile.id,
         question: query,
-        answer: generatedAnswer,
+        answer: result,
         mode,
-        createdAt:
-          new Date().toISOString()
+        modeName: currentMode?.name || mode,
+        createdAt: new Date().toISOString()
       };
 
-      setHistory((current) => [
-        historyItem,
-        ...current
-      ]);
+      setHistory((previous) => [chat, ...previous]);
     } catch (error) {
       console.error(error);
 
       setAnswer(
-        "Não foi possível consultar a IA. " +
-        "A conexão com o serviço ainda precisa ser configurada."
+        "Não foi possível consultar a IA. Verifique a conexão com o serviço."
       );
     } finally {
       setLoading(false);
@@ -373,52 +316,59 @@ function App() {
   }
 
   /* =======================================================
-     NOVA PESQUISA
+     ENTER NO CAMPO DE PESQUISA
   ======================================================= */
 
-  function newSearch() {
-    setQuestion("");
-    setAnswer("");
-    navigate("pesquisa");
+  function handleSearchKeyDown(event) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      search();
+    }
   }
 
   /* =======================================================
-     HISTÓRICO
+     COPIAR
   ======================================================= */
 
-  function openHistoryItem(item) {
-    setQuestion(item.question);
-    setAnswer(item.answer);
-    setMode(item.mode || "juridica");
-
-    setHistoryOpen(false);
-    navigate("pesquisa");
-  }
-
-  function deleteHistoryItem(id) {
-    setHistory((current) =>
-      current.filter(
-        (item) => item.id !== id
-      )
-    );
-  }
-
-  function clearHistory() {
-    if (history.length === 0) {
+  async function copyAnswer() {
+    if (!answer) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        "Deseja realmente apagar todo o histórico?"
-      );
-
-    if (!confirmed) {
-      return;
+    try {
+      await navigator.clipboard.writeText(answer);
+    } catch (error) {
+      console.error(error);
     }
+  }
 
-    setHistory([]);
-    setAnswer("");
+  /* =======================================================
+     PERFIL
+  ======================================================= */
+
+  function openProfile() {
+    setProfileDraft({ ...profile });
+    setProfileOpen(true);
+  }
+
+  function saveProfile() {
+    const cleanProfile = {
+      ...profileDraft,
+      id: profile.id,
+      name:
+        profileDraft.name?.trim() ||
+        "Usuário Loy",
+      institution:
+        profileDraft.institution?.trim() || "",
+      course:
+        profileDraft.course?.trim() || "Direito"
+    };
+
+    setProfile(cleanProfile);
+    setProfileOpen(false);
   }
 
   /* =======================================================
@@ -426,234 +376,242 @@ function App() {
   ======================================================= */
 
   function createGroup() {
-    const groupName =
-      newGroup.trim();
+    const groupName = newGroup.trim();
 
     if (!groupName) {
       return;
     }
 
     const group = {
-      groupId: createId("group"),
-      userId: profile.userId,
+      id: generateId("group"),
       name: groupName,
+      ownerId: profile.id,
+      ownerName: profile.name,
+      code: Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase(),
       members: [
         {
-          userId: profile.userId,
+          id: profile.id,
           name: profile.name,
-          username: profile.username
+          type: profile.type
         }
       ],
-      messages: [],
-      history: [],
-      createdAt:
-        new Date().toISOString()
+      chatHistory: [],
+      createdAt: new Date().toISOString()
     };
 
-    setGroups((current) => [
+    setGroups((previous) => [
       group,
-      ...current
+      ...previous
     ]);
 
     setNewGroup("");
-    setSelectedGroupId(group.groupId);
+    setSelectedGroup(group.id);
+  }
+
+  function enterGroup(groupId) {
+    setSelectedGroup(groupId);
+  }
+
+  function leaveGroup() {
+    setSelectedGroup(null);
   }
 
   function deleteGroup(groupId) {
-    const confirmed =
-      window.confirm(
-        "Deseja realmente excluir este grupo?"
-      );
+    const confirmed = window.confirm(
+      "Deseja realmente excluir este grupo?"
+    );
 
     if (!confirmed) {
       return;
     }
 
-    setGroups((current) =>
-      current.filter(
-        (group) =>
-          group.groupId !== groupId
+    setGroups((previous) =>
+      previous.filter(
+        (group) => group.id !== groupId
       )
     );
 
-    if (selectedGroupId === groupId) {
-      setSelectedGroupId(null);
+    if (selectedGroup === groupId) {
+      setSelectedGroup(null);
     }
   }
 
   /* =======================================================
-     CHAT COMPARTILHADO
+     CHAT COMPARTILHADO DO GRUPO
   ======================================================= */
 
-  function sendGroupMessage() {
-    const message =
-      groupMessage.trim();
+  async function sendGroupMessage() {
+    const message = groupMessage.trim();
 
-    if (!message || !selectedGroupId) {
+    if (!message || !selectedGroup) {
       return;
     }
 
-    const newMessage = {
-      messageId: createId("message"),
-      userId: profile.userId,
+    const group = groups.find(
+      (item) => item.id === selectedGroup
+    );
+
+    if (!group) {
+      return;
+    }
+
+    const userMessage = {
+      id: generateId("message"),
+      userId: profile.id,
       userName: profile.name,
-      username: profile.username,
+      type: "user",
       text: message,
-      createdAt:
-        new Date().toISOString()
+      createdAt: new Date().toISOString()
     };
 
-    setGroups((current) =>
-      current.map((group) => {
-        if (
-          group.groupId !==
-          selectedGroupId
-        ) {
-          return group;
-        }
+    /* Mostra imediatamente a mensagem no grupo */
 
-        return {
-          ...group,
-          messages: [
-            ...(group.messages || []),
-            newMessage
-          ]
-        };
-      })
+    setGroups((previous) =>
+      previous.map((item) =>
+        item.id === selectedGroup
+          ? {
+              ...item,
+              chatHistory: [
+                ...(item.chatHistory || []),
+                userMessage
+              ]
+            }
+          : item
+      )
     );
 
     setGroupMessage("");
+
+    try {
+      const response = await fetch(
+        "/.netlify/functions/gemini",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query: message,
+            mode: "juridica",
+            groupId: group.id,
+            groupName: group.name,
+            sharedChat: true
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Erro ao consultar a IA."
+        );
+      }
+
+      const aiMessage = {
+        id: generateId("message"),
+        userId: "loy-ai",
+        userName: "Loy IA",
+        type: "ai",
+        text:
+          data.answer ||
+          "A IA não retornou uma resposta.",
+        createdAt: new Date().toISOString()
+      };
+
+      setGroups((previous) =>
+        previous.map((item) =>
+          item.id === selectedGroup
+            ? {
+                ...item,
+                chatHistory: [
+                  ...(item.chatHistory || []),
+                  aiMessage
+                ]
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error(error);
+
+      const errorMessage = {
+        id: generateId("message"),
+        userId: "loy-system",
+        userName: "Loy",
+        type: "system",
+        text:
+          "Não foi possível consultar a IA neste momento.",
+        createdAt: new Date().toISOString()
+      };
+
+      setGroups((previous) =>
+        previous.map((item) =>
+          item.id === selectedGroup
+            ? {
+                ...item,
+                chatHistory: [
+                  ...(item.chatHistory || []),
+                  errorMessage
+                ]
+              }
+            : item
+        )
+      );
+    }
   }
 
-  function saveCurrentSearchToGroup(groupId) {
-    if (
-      !question.trim() ||
-      !answer.trim()
-    ) {
+  /* =======================================================
+     HISTÓRICO
+  ======================================================= */
+
+  function openHistoryChat(chat) {
+    setMode(chat.mode);
+    setQuestion(chat.question);
+    setAnswer(chat.answer);
+    setHistoryOpen(false);
+
+    setTimeout(() => {
+      document
+        .getElementById("resultado")
+        ?.scrollIntoView({
+          behavior: "smooth"
+        });
+    }, 100);
+  }
+
+  function clearHistory() {
+    const confirmed = window.confirm(
+      "Deseja apagar todo o histórico de pesquisas?"
+    );
+
+    if (!confirmed) {
       return;
     }
 
-    const item = {
-      historyId:
-        createId("group_history"),
-
-      userId:
-        profile.userId,
-
-      userName:
-        profile.name,
-
-      question,
-
-      answer,
-
-      mode,
-
-      createdAt:
-        new Date().toISOString()
-    };
-
-    setGroups((current) =>
-      current.map((group) => {
-        if (
-          group.groupId !== groupId
-        ) {
-          return group;
-        }
-
-        return {
-          ...group,
-          history: [
-            ...(group.history || []),
-            item
-          ]
-        };
-      })
-    );
-  }
-
-  function openGroup(groupId) {
-    setSelectedGroupId(groupId);
-  }
-
-  const selectedGroup = groups.find(
-    (group) =>
-      group.groupId ===
-      selectedGroupId
-  );
-
-  /* =======================================================
-     ARTIGOS
-  ======================================================= */
-
-  const filteredArticles =
-    useMemo(() => {
-      return articles.filter(
-        (article) => {
-          const matchesSearch =
-            !articleSearch.trim() ||
-            `${article.title} ${article.author} ${article.summary}`
-              .toLowerCase()
-              .includes(
-                articleSearch
-                  .toLowerCase()
-                  .trim()
-              );
-
-          const matchesArea =
-            articleArea ===
-              "Todas as áreas" ||
-            article.area ===
-              articleArea;
-
-          return (
-            matchesSearch &&
-            matchesArea
-          );
-        }
-      );
-    }, [
-      articles,
-      articleSearch,
-      articleArea
-    ]);
-
-  /* =======================================================
-     DATA
-  ======================================================= */
-
-  function formatDate(dateString) {
-    if (!dateString) {
-      return "";
-    }
-
-    try {
-      return new Date(
-        dateString
-      ).toLocaleString(
-        "pt-BR",
-        {
-          dateStyle: "short",
-          timeStyle: "short"
-        }
-      );
-    } catch {
-      return "";
-    }
+    setHistory([]);
   }
 
   /* =======================================================
-     HEADER
+     RENDER
   ======================================================= */
 
   return (
     <div className="app">
 
+      {/* ===================================================
+          HEADER
+      =================================================== */}
+
       <header className="topbar">
 
         <div
           className="brand"
-          onClick={newSearch}
+          onClick={goHome}
         >
           <div className="logo">
             L
@@ -670,56 +628,32 @@ function App() {
 
         <nav>
 
-          <button
-            className={
-              activePage === "pesquisa"
-                ? "nav-active"
-                : ""
-            }
-            onClick={() =>
-              navigate("pesquisa")
-            }
-          >
+          <button onClick={goHome}>
             Pesquisar
           </button>
 
           <button
-            className={
-              activePage === "artigos"
-                ? "nav-active"
-                : ""
-            }
             onClick={() =>
-              navigate("artigos")
+              setHistoryOpen(true)
+            }
+          >
+            Histórico
+          </button>
+
+          <button
+            onClick={() =>
+              setArticlesOpen(true)
             }
           >
             Artigos
           </button>
 
           <button
-            className={
-              activePage === "grupos"
-                ? "nav-active"
-                : ""
-            }
             onClick={() =>
-              navigate("grupos")
+              setGroupsOpen(true)
             }
           >
-            Grupos
-          </button>
-
-          <button
-            className={
-              activePage === "historico"
-                ? "nav-active"
-                : ""
-            }
-            onClick={() =>
-              navigate("historico")
-            }
-          >
-            Histórico
+            Meus grupos
           </button>
 
           <button
@@ -727,9 +661,8 @@ function App() {
             onClick={openProfile}
           >
             <span className="nav-avatar">
-              {getInitial()}
+              {userInitial}
             </span>
-
             Perfil
           </button>
 
@@ -738,52 +671,99 @@ function App() {
       </header>
 
       {/* ===================================================
-          PÁGINA DE PESQUISA
+          CONTEÚDO
       =================================================== */}
 
-      {activePage === "pesquisa" && (
+      <main>
 
-        <main>
+        <section
+          className="hero"
+          id="pesquisa"
+        >
 
-          <section
-            className="hero"
-            id="pesquisa"
-          >
+          <div className="eyebrow">
+            PESQUISA JURÍDICA INTELIGENTE
+          </div>
 
-            <div className="eyebrow">
-              PESQUISA JURÍDICA INTELIGENTE
+          <h1>
+            O futuro do direito
+            <br />
+            <em>começa aqui.</em>
+          </h1>
+
+          <p>
+            Pesquise, organize seus estudos,
+            encontre fontes jurídicas e desenvolva
+            seus trabalhos com inteligência artificial.
+          </p>
+
+          {/* PERFIL RESUMIDO */}
+
+          <div className="profile-mini">
+
+            <div className="profile-mini-avatar">
+              {userInitial}
             </div>
 
-            <h1>
-              O futuro do direito
-              <br />
-              <em>começa aqui.</em>
-            </h1>
+            <div>
+              <strong>
+                Olá, {profile.name}
+              </strong>
 
-            <p>
-              Pesquise, organize seus estudos e
-              desenvolva trabalhos com
-              inteligência artificial.
-            </p>
+              <span>
+                {profile.type}
+              </span>
+            </div>
 
-            <div className="searchbox">
+            <button onClick={openProfile}>
+              Editar perfil
+            </button>
 
-              <textarea
-                value={question}
-                onChange={(event) =>
-                  setQuestion(
-                    event.target.value
-                  )
-                }
-                placeholder="Digite sua dúvida, tema, lei ou caso..."
-              />
+          </div>
+
+          {/* BUSCA */}
+
+          <div className="searchbox">
+
+            <div className="search-context">
+              <span>
+                {currentMode.icon}
+              </span>
+
+              <div>
+                <strong>
+                  {currentMode.name}
+                </strong>
+
+                <small>
+                  {currentMode.description}
+                </small>
+              </div>
+            </div>
+
+            <textarea
+              value={question}
+              onChange={(event) =>
+                setQuestion(event.target.value)
+              }
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Digite sua dúvida, tema, lei ou caso..."
+            />
+
+            <div className="search-footer">
+
+              <span>
+                Enter para pesquisar · Shift + Enter
+                para nova linha
+              </span>
 
               <button
                 className="searchbtn"
-                onClick={() =>
-                  search()
+                onClick={() => search()}
+                disabled={
+                  loading ||
+                  !question.trim()
                 }
-                disabled={loading}
               >
                 {loading
                   ? "Consultando..."
@@ -792,853 +772,223 @@ function App() {
 
             </div>
 
-            <div className="tabs">
+          </div>
 
-              {modes.map((item) => (
+          {/* ABAS */}
 
+          <div className="tabs">
+
+            {modes.map((item) => (
+              <button
+                key={item.id}
+                className={
+                  mode === item.id
+                    ? "tab active"
+                    : "tab"
+                }
+                onClick={() => {
+                  setMode(item.id);
+                  setAnswer("");
+                }}
+              >
+                <span>
+                  {item.icon}
+                </span>
+
+                {item.name}
+              </button>
+            ))}
+
+          </div>
+
+          {/* SUGESTÕES */}
+
+          <div className="chips">
+
+            {currentExamples.map(
+              (example) => (
                 <button
-                  key={item.id}
-                  className={
-                    mode === item.id
-                      ? "tab active"
-                      : "tab"
-                  }
+                  key={example}
                   onClick={() =>
-                    setMode(item.id)
+                    search(example)
                   }
                 >
-                  <span>
-                    {item.icon}
-                  </span>
-
-                  {item.name}
+                  {example}
                 </button>
+              )
+            )}
 
-              ))}
+          </div>
 
-            </div>
+        </section>
 
-            <div className="chips">
+        {/* =================================================
+            RESULTADO
+        ================================================= */}
 
-              {examples.map(
-                (example) => (
+        {answer && (
 
-                  <button
-                    key={example}
-                    onClick={() =>
-                      search(example)
-                    }
-                  >
-                    {example}
-                  </button>
+          <section
+            className="answer-card"
+            id="resultado"
+          >
 
-                )
-              )}
+            <div className="answer-head">
 
-            </div>
-
-          </section>
-
-          {answer && (
-
-            <section className="answer-card">
-
-              <div className="answer-head">
-
+              <div>
                 <span>
                   Resultado da pesquisa
                 </span>
 
-                <div className="answer-actions">
-
-                  <button
-                    onClick={() =>
-                      navigator.clipboard?.writeText(
-                        answer
-                      )
-                    }
-                  >
-                    Copiar
-                  </button>
-
-                  {groups.length > 0 && (
-
-                    <button
-                      onClick={() =>
-                        navigate("grupos")
-                      }
-                    >
-                      Salvar no grupo
-                    </button>
-
-                  )}
-
-                </div>
-
+                <small>
+                  {currentMode.name}
+                </small>
               </div>
 
-              <div className="answer-body">
-                {answer}
-              </div>
-
-              <small>
-                O conteúdo gerado por IA deve
-                ser conferido nas fontes oficiais.
-              </small>
-
-            </section>
-
-          )}
-
-          <section className="features">
-
-            <div className="feature">
-              <b>01</b>
-
-              <h3>
-                Pesquise
-              </h3>
-
-              <p>
-                Encontre respostas estruturadas
-                para seus estudos jurídicos.
-              </p>
-            </div>
-
-            <div className="feature">
-              <b>02</b>
-
-              <h3>
-                Organize
-              </h3>
-
-              <p>
-                Centralize pesquisas, conversas
-                e materiais importantes.
-              </p>
-            </div>
-
-            <div className="feature">
-              <b>03</b>
-
-              <h3>
-                Colabore
-              </h3>
-
-              <p>
-                Crie grupos e trabalhe em
-                conjunto através do chat compartilhado.
-              </p>
-            </div>
-
-          </section>
-
-          <section className="groups-banner">
-
-            <div>
-
-              <div className="eyebrow">
-                TRABALHO COLABORATIVO
-              </div>
-
-              <h2>
-                Estude sozinho ou em grupo.
-              </h2>
-
-              <p>
-                Crie grupos para trabalhos,
-                pesquisas acadêmicas e projetos
-                colaborativos.
-              </p>
+              <button
+                onClick={copyAnswer}
+              >
+                Copiar
+              </button>
 
             </div>
 
-            <button
-              onClick={() =>
-                navigate("grupos")
-              }
-            >
-              Criar grupo →
-            </button>
-
-          </section>
-
-        </main>
-      )}
-
-      {/* ===================================================
-          PÁGINA DE ARTIGOS
-      =================================================== */}
-
-      {activePage === "artigos" && (
-
-        <main className="page-container">
-
-          <section className="page-hero">
-
-            <div className="eyebrow">
-              PESQUISA ACADÊMICA
-            </div>
-
-            <h1>
-              Artigos <em>jurídicos.</em>
-            </h1>
-
-            <p>
-              Encontre pesquisas e produções
-              acadêmicas com suas respectivas fontes.
-            </p>
-
-          </section>
-
-          <section className="article-search-panel">
-
-            <input
-              value={articleSearch}
-              onChange={(event) =>
-                setArticleSearch(
-                  event.target.value
-                )
-              }
-              placeholder="Pesquisar por título, autor ou tema..."
-            />
-
-            <select
-              value={articleArea}
-              onChange={(event) =>
-                setArticleArea(
-                  event.target.value
-                )
-              }
-            >
-
-              {legalAreas.map(
-                (area) => (
-                  <option
-                    key={area}
-                    value={area}
-                  >
-                    {area}
-                  </option>
-                )
-              )}
-
-            </select>
-
-          </section>
-
-          {filteredArticles.length === 0 ? (
-
-            <section className="empty-articles">
-
-              <div className="article-empty-icon">
-                📄
-              </div>
-
-              <h2>
-                Nenhum artigo encontrado
-              </h2>
-
-              <p>
-                Os artigos aparecerão aqui quando
-                uma fonte acadêmica for conectada
-                ao Loy.
-              </p>
-
-              <small>
-                O Loy não cria fontes fictícias.
-                Cada artigo deverá possuir sua
-                referência original.
-              </small>
-
-            </section>
-
-          ) : (
-
-            <section className="articles-grid">
-
-              {filteredArticles.map(
-                (article) => (
-
-                  <article
-                    className="article-card"
-                    key={article.articleId}
-                  >
-
-                    <div className="article-area">
-                      {article.area}
-                    </div>
-
-                    <h2>
-                      {article.title}
-                    </h2>
-
-                    <p className="article-author">
-                      {article.author}
-                    </p>
-
-                    <p>
-                      {article.summary}
-                    </p>
-
-                    <div className="article-source">
-
-                      <span>
-                        Fonte
-                      </span>
-
-                      <strong>
-                        {article.source}
-                      </strong>
-
-                    </div>
-
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Ler artigo →
-                    </a>
-
-                  </article>
-
-                )
-              )}
-
-            </section>
-          )}
-
-        </main>
-      )}
-
-      {/* ===================================================
-          PÁGINA DE GRUPOS
-      =================================================== */}
-
-      {activePage === "grupos" && (
-
-        <main className="page-container">
-
-          <section className="page-hero">
-
-            <div className="eyebrow">
-              COLABORAÇÃO
-            </div>
-
-            <h1>
-              Meus <em>grupos.</em>
-            </h1>
-
-            <p>
-              Crie espaços de trabalho com
-              chat compartilhado e histórico.
-            </p>
-
-          </section>
-
-          <section className="group-create-panel">
-
-            <input
-              value={newGroup}
-              onChange={(event) =>
-                setNewGroup(
-                  event.target.value
-                )
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  createGroup();
-                }
-              }}
-              placeholder="Nome do novo grupo"
-            />
-
-            <button
-              className="primary"
-              onClick={createGroup}
-            >
-              Criar grupo
-            </button>
-
-          </section>
-
-          {groups.length === 0 ? (
-
-            <section className="empty-state large">
-
-              <div className="empty-icon">
-                👥
-              </div>
-
+            <div className="question-preview">
               <strong>
-                Você ainda não possui grupos.
+                Sua pergunta
               </strong>
 
               <p>
-                Crie um grupo para começar
-                uma conversa compartilhada.
+                {question}
               </p>
-
-            </section>
-
-          ) : (
-
-            <section className="groups-layout">
-
-              <div className="group-list">
-
-                {groups.map(
-                  (group) => (
-
-                    <div
-                      className={
-                        selectedGroupId ===
-                        group.groupId
-                          ? "group-card selected"
-                          : "group-card"
-                      }
-                      key={group.groupId}
-                      onClick={() =>
-                        openGroup(
-                          group.groupId
-                        )
-                      }
-                    >
-
-                      <div className="group-avatar">
-                        {group.name
-                          ?.charAt(0)
-                          ?.toUpperCase() ||
-                          "G"}
-                      </div>
-
-                      <div className="group-info">
-
-                        <strong>
-                          {group.name}
-                        </strong>
-
-                        <small>
-                          {group.members?.length ||
-                            1}{" "}
-                          integrante(s)
-                        </small>
-
-                        <small>
-                          {group.messages?.length ||
-                            0} mensagem(ns)
-                        </small>
-
-                        <small>
-                          {group.history?.length ||
-                            0} pesquisa(s)
-                        </small>
-
-                      </div>
-
-                      <button
-                        className="delete-group"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          deleteGroup(
-                            group.groupId
-                          );
-                        }}
-                      >
-                        ×
-                      </button>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-              {selectedGroup ? (
-
-                <section className="shared-chat">
-
-                  <div className="chat-header">
-
-                    <div>
-
-                      <div className="eyebrow">
-                        CHAT COMPARTILHADO
-                      </div>
-
-                      <h2>
-                        {selectedGroup.name}
-                      </h2>
-
-                    </div>
-
-                    <span>
-                      {selectedGroup.members?.length ||
-                        1}{" "}
-                      integrante(s)
-                    </span>
-
-                  </div>
-
-                  <div className="group-id">
-                    ID do grupo:
-                    {" "}
-                    {selectedGroup.groupId}
-                  </div>
-
-                  <div className="chat-messages">
-
-                    {(selectedGroup.messages ||
-                      []).length === 0 ? (
-
-                      <div className="chat-empty">
-
-                        <div>
-                          💬
-                        </div>
-
-                        <strong>
-                          Comece a conversa
-                        </strong>
-
-                        <p>
-                          As mensagens enviadas
-                          aqui ficam salvas no
-                          histórico compartilhado
-                          deste grupo.
-                        </p>
-
-                      </div>
-
-                    ) : (
-
-                      selectedGroup.messages.map(
-                        (message) => (
-
-                          <div
-                            className={
-                              message.userId ===
-                              profile.userId
-                                ? "chat-message own"
-                                : "chat-message"
-                            }
-                            key={
-                              message.messageId
-                            }
-                          >
-
-                            <div className="message-user">
-                              {message.userName}
-                              {message.userId ===
-                                profile.userId &&
-                                " · você"}
-                            </div>
-
-                            <div className="message-bubble">
-                              {message.text}
-                            </div>
-
-                            <small>
-                              {formatDate(
-                                message.createdAt
-                              )}
-                            </small>
-
-                          </div>
-
-                        )
-                      )
-
-                    )}
-
-                  </div>
-
-                  <div className="chat-input">
-
-                    <textarea
-                      value={groupMessage}
-                      onChange={(event) =>
-                        setGroupMessage(
-                          event.target.value
-                        )
-                      }
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === "Enter" &&
-                          !event.shiftKey
-                        ) {
-                          event.preventDefault();
-                          sendGroupMessage();
-                        }
-                      }}
-                      placeholder="Escreva uma mensagem no grupo..."
-                    />
-
-                    <button
-                      className="primary"
-                      onClick={
-                        sendGroupMessage
-                      }
-                    >
-                      Enviar
-                    </button>
-
-                  </div>
-
-                  {answer && (
-
-                    <div className="group-save-search">
-
-                      <strong>
-                        Salvar a pesquisa atual
-                        neste grupo
-                      </strong>
-
-                      <button
-                        onClick={() =>
-                          saveCurrentSearchToGroup(
-                            selectedGroup.groupId
-                          )
-                        }
-                      >
-                        + Salvar pesquisa
-                      </button>
-
-                    </div>
-
-                  )}
-
-                  <div className="group-history">
-
-                    <div className="section-title">
-
-                      <h3>
-                        Histórico do grupo
-                      </h3>
-
-                    </div>
-
-                    {(
-                      selectedGroup.history ||
-                      []
-                    ).length === 0 ? (
-
-                      <p className="muted">
-                        Nenhuma pesquisa salva
-                        neste grupo.
-                      </p>
-
-                    ) : (
-
-                      selectedGroup.history.map(
-                        (item) => (
-
-                          <button
-                            className="group-history-item"
-                            key={
-                              item.historyId
-                            }
-                            onClick={() =>
-                              openHistoryItem(
-                                item
-                              )
-                            }
-                          >
-
-                            <strong>
-                              {item.question}
-                            </strong>
-
-                            <small>
-                              Por{" "}
-                              {item.userName}
-                              {" · "}
-                              {formatDate(
-                                item.createdAt
-                              )}
-                            </small>
-
-                          </button>
-
-                        )
-                      )
-
-                    )}
-
-                  </div>
-
-                </section>
-
-              ) : (
-
-                <section className="group-placeholder">
-
-                  <div>
-                    👥
-                  </div>
-
-                  <h2>
-                    Selecione um grupo
-                  </h2>
-
-                  <p>
-                    Escolha um grupo para abrir
-                    o chat compartilhado.
-                  </p>
-
-                </section>
-
-              )}
-
-            </section>
-
-          )}
-
-        </main>
-      )}
-
-      {/* ===================================================
-          PÁGINA HISTÓRICO
-      =================================================== */}
-
-      {activePage === "historico" && (
-
-        <main className="page-container">
-
-          <section className="page-hero">
-
-            <div className="eyebrow">
-              SUAS PESQUISAS
             </div>
 
-            <h1>
-              Meu <em>histórico.</em>
-            </h1>
+            <div className="answer-body">
+              {answer}
+            </div>
+
+            <small className="disclaimer">
+              Conteúdo gerado por inteligência
+              artificial. Confira as informações
+              nas fontes oficiais antes de utilizá-las
+              em trabalhos acadêmicos ou decisões
+              profissionais.
+            </small>
+
+          </section>
+
+        )}
+
+        {/* =================================================
+            FUNCIONALIDADES
+        ================================================= */}
+
+        <section className="features">
+
+          <div className="feature">
+            <b>01</b>
+
+            <h3>
+              Pesquise
+            </h3>
 
             <p>
-              Todas as pesquisas feitas pelo
-              seu perfil ficam organizadas aqui.
+              Consulte temas jurídicos utilizando
+              inteligência artificial e organize suas
+              pesquisas.
             </p>
+          </div>
 
-          </section>
+          <div className="feature">
+            <b>02</b>
 
-          <section className="history-page">
+            <h3>
+              Organize
+            </h3>
 
-            <div className="history-page-header">
+            <p>
+              Seu histórico fica salvo para que você
+              possa retomar suas pesquisas quando quiser.
+            </p>
+          </div>
 
-              <div>
-                <strong>
-                  {history.length}
-                </strong>
+          <div className="feature">
+            <b>03</b>
 
-                <span>
-                  pesquisa(s) salva(s)
-                </span>
-              </div>
+            <h3>
+              Colabore
+            </h3>
 
-              {history.length > 0 && (
+            <p>
+              Crie grupos de estudo e utilize o chat
+              compartilhado para trabalhos acadêmicos.
+            </p>
+          </div>
 
-                <button
-                  className="danger-button"
-                  onClick={
-                    clearHistory
-                  }
-                >
-                  Limpar histórico
-                </button>
+        </section>
 
-              )}
+        {/* =================================================
+            GRUPOS
+        ================================================= */}
 
+        <section className="groups-banner">
+
+          <div>
+
+            <div className="eyebrow">
+              TRABALHO COLABORATIVO
             </div>
 
-            {history.length === 0 ? (
+            <h2>
+              Estude sozinho ou em grupo.
+            </h2>
 
-              <div className="empty-state large">
+            <p>
+              Crie grupos para trabalhos,
+              pesquisas acadêmicas e projetos
+              colaborativos com um chat compartilhado.
+            </p>
 
-                <div className="empty-icon">
-                  ◌
-                </div>
+          </div>
 
-                <strong>
-                  Nenhuma pesquisa ainda
-                </strong>
+          <button
+            onClick={() =>
+              setGroupsOpen(true)
+            }
+          >
+            Criar grupo →
+          </button>
 
-                <p>
-                  Faça uma pesquisa e ela será
-                  salva automaticamente aqui.
-                </p>
+        </section>
 
-              </div>
+      </main>
 
-            ) : (
+      {/* ===================================================
+          FOOTER
+      =================================================== */}
 
-              <div className="history-page-list">
+      <footer>
 
-                {history.map(
-                  (item) => (
+        <strong>Loy</strong>
 
-                    <div
-                      className="history-page-item"
-                      key={item.id}
-                    >
+        {" · "}
 
-                      <button
-                        className="history-open"
-                        onClick={() =>
-                          openHistoryItem(
-                            item
-                          )
-                        }
-                      >
+        O futuro do direito começa aqui.
 
-                        <div className="history-mode">
-                          {item.mode ===
-                          "juridica"
-                            ? "⚖ Jurídica"
-                            : item.mode ===
-                              "academica"
-                              ? "▤ Acadêmica"
-                              : "✦ Outros"}
-                        </div>
+        <span>
+          Para estudo e pesquisa acadêmica.
+        </span>
 
-                        <strong>
-                          {item.question}
-                        </strong>
+        <button
+          className="footer-about"
+          onClick={() =>
+            setAboutOpen(true)
+          }
+        >
+          Sobre o Loy
+        </button>
 
-                        <small>
-                          {formatDate(
-                            item.createdAt
-                          )}
-                        </small>
-
-                      </button>
-
-                      <button
-                        className="delete-small"
-                        onClick={() =>
-                          deleteHistoryItem(
-                            item.id
-                          )
-                        }
-                      >
-                        ×
-                      </button>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-            )}
-
-          </section>
-
-        </main>
-      )}
+      </footer>
 
       {/* ===================================================
           MODAL PERFIL
@@ -1654,7 +1004,7 @@ function App() {
         >
 
           <div
-            className="modal profile-modal"
+            className="modal"
             onClick={(event) =>
               event.stopPropagation()
             }
@@ -1669,39 +1019,30 @@ function App() {
               ×
             </button>
 
-            <div className="profile-header">
+            <div className="profile-modal-header">
 
-              <div className="avatar large">
-                {profileForm.name
-                  ?.charAt(0)
-                  ?.toUpperCase() ||
-                  "L"}
+              <div className="avatar">
+                {userInitial}
               </div>
 
               <div>
-
                 <div className="eyebrow">
-                  PERFIL DO USUÁRIO
+                  CONTA LOY
                 </div>
 
                 <h2>
                   Meu perfil
                 </h2>
-
               </div>
 
             </div>
 
-            <div className="user-id-box">
-
-              <span>
-                ID único do usuário
-              </span>
+            <div className="unique-id">
+              <span>ID único do usuário</span>
 
               <strong>
-                {profile.userId}
+                {profile.id}
               </strong>
-
             </div>
 
             <label>
@@ -1709,132 +1050,75 @@ function App() {
             </label>
 
             <input
-              value={profileForm.name}
+              value={profileDraft.name}
               onChange={(event) =>
-                updateProfileField(
-                  "name",
-                  event.target.value
-                )
+                setProfileDraft({
+                  ...profileDraft,
+                  name: event.target.value
+                })
               }
               placeholder="Seu nome"
             />
 
             <label>
-              Nome de usuário
-            </label>
-
-            <input
-              value={profileForm.username}
-              onChange={(event) =>
-                updateProfileField(
-                  "username",
-                  event.target.value
-                )
-              }
-              placeholder="@seuusuario"
-            />
-
-            <label>
-              E-mail
-            </label>
-
-            <input
-              type="email"
-              value={profileForm.email}
-              onChange={(event) =>
-                updateProfileField(
-                  "email",
-                  event.target.value
-                )
-              }
-              placeholder="seuemail@email.com"
-            />
-
-            <label>
-              Você é:
+              Você é
             </label>
 
             <select
-              value={profileForm.type}
+              value={profileDraft.type}
               onChange={(event) =>
-                updateProfileField(
-                  "type",
-                  event.target.value
-                )
+                setProfileDraft({
+                  ...profileDraft,
+                  type: event.target.value
+                })
               }
             >
 
               {profileTypes.map(
                 (type) => (
-
                   <option
                     key={type}
                     value={type}
                   >
                     {type}
                   </option>
-
                 )
               )}
 
             </select>
 
             <label>
-              Área de interesse
+              Instituição
             </label>
 
-            <select
+            <input
               value={
-                profileForm.area ||
-                ""
+                profileDraft.institution
               }
               onChange={(event) =>
-                updateProfileField(
-                  "area",
-                  event.target.value
-                )
+                setProfileDraft({
+                  ...profileDraft,
+                  institution:
+                    event.target.value
+                })
               }
-            >
-
-              <option value="">
-                Selecione uma área
-              </option>
-
-              {legalAreas
-                .filter(
-                  (area) =>
-                    area !==
-                    "Todas as áreas"
-                )
-                .map(
-                  (area) => (
-
-                    <option
-                      key={area}
-                      value={area}
-                    >
-                      {area}
-                    </option>
-
-                  )
-                )}
-
-            </select>
+              placeholder="Ex.: Universidade Presbiteriana Mackenzie"
+            />
 
             <label>
-              Bio
+              Curso
             </label>
 
-            <textarea
-              className="profile-bio"
-              value={profileForm.bio}
+            <input
+              value={profileDraft.course}
               onChange={(event) =>
-                updateProfileField(
-                  "bio",
-                  event.target.value
-                )
+                setProfileDraft({
+                  ...profileDraft,
+                  course:
+                    event.target.value
+                })
               }
-              placeholder="Conte um pouco sobre você..."
+              placeholder="Ex.: Direito"
             />
 
             <button
@@ -1851,24 +1135,643 @@ function App() {
       )}
 
       {/* ===================================================
-          FOOTER
+          MODAL HISTÓRICO
       =================================================== */}
 
-      <footer>
+      {historyOpen && (
 
-        <strong>
-          Loy
-        </strong>
+        <div
+          className="modal-bg"
+          onClick={() =>
+            setHistoryOpen(false)
+          }
+        >
 
-        {" · "}
+          <div
+            className="modal wide"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
 
-        O futuro do direito começa aqui.
+            <button
+              className="close"
+              onClick={() =>
+                setHistoryOpen(false)
+              }
+            >
+              ×
+            </button>
 
-        <span>
-          Para estudo e pesquisa acadêmica.
-        </span>
+            <div className="eyebrow">
+              SUAS PESQUISAS
+            </div>
 
-      </footer>
+            <div className="modal-title-row">
+
+              <h2>
+                Histórico de chat
+              </h2>
+
+              {history.length > 0 && (
+                <button
+                  className="danger-button"
+                  onClick={clearHistory}
+                >
+                  Limpar histórico
+                </button>
+              )}
+
+            </div>
+
+            {history.length === 0 ? (
+
+              <div className="empty-state">
+                <div>
+                  💬
+                </div>
+
+                <h3>
+                  Nenhuma pesquisa ainda
+                </h3>
+
+                <p>
+                  Suas conversas com a Loy aparecerão
+                  aqui automaticamente.
+                </p>
+              </div>
+
+            ) : (
+
+              <div className="history-list">
+
+                {history.map(
+                  (chat) => (
+
+                    <button
+                      className="history-card"
+                      key={chat.id}
+                      onClick={() =>
+                        openHistoryChat(chat)
+                      }
+                    >
+
+                      <div className="history-card-top">
+
+                        <span className="history-mode">
+                          {chat.modeName}
+                        </span>
+
+                        <small>
+                          {formatDate(
+                            chat.createdAt
+                          )}
+                        </small>
+
+                      </div>
+
+                      <strong>
+                        {chat.question}
+                      </strong>
+
+                      <p>
+                        {chat.answer
+                          .replace(/\n/g, " ")
+                          .substring(0, 180)}
+                        {chat.answer.length > 180
+                          ? "..."
+                          : ""}
+                      </p>
+
+                    </button>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* ===================================================
+          MODAL ARTIGOS
+      =================================================== */}
+
+      {articlesOpen && (
+
+        <div
+          className="modal-bg"
+          onClick={() =>
+            setArticlesOpen(false)
+          }
+        >
+
+          <div
+            className="modal wide"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <button
+              className="close"
+              onClick={() =>
+                setArticlesOpen(false)
+              }
+            >
+              ×
+            </button>
+
+            <div className="eyebrow">
+              FONTES JURÍDICAS
+            </div>
+
+            <h2>
+              Artigos e fontes
+            </h2>
+
+            <p className="muted intro">
+              Encontre fontes jurídicas e acadêmicas
+              para complementar suas pesquisas.
+            </p>
+
+            <div className="articles-list">
+
+              {articles.map(
+                (article) => (
+
+                  <article
+                    className="article-card"
+                    key={article.id}
+                  >
+
+                    <div className="article-icon">
+                      📚
+                    </div>
+
+                    <div className="article-content">
+
+                      <div className="article-category">
+                        {article.category}
+                      </div>
+
+                      <h3>
+                        {article.title}
+                      </h3>
+
+                      <p>
+                        {article.description}
+                      </p>
+
+                      <div className="article-source">
+                        Fonte:{" "}
+                        <strong>
+                          {article.source}
+                        </strong>
+                      </div>
+
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Acessar fonte →
+                      </a>
+
+                    </div>
+
+                  </article>
+
+                )
+              )}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* ===================================================
+          MODAL GRUPOS
+      =================================================== */}
+
+      {groupsOpen && (
+
+        <div
+          className="modal-bg"
+          onClick={() =>
+            setGroupsOpen(false)
+          }
+        >
+
+          <div
+            className="modal extra-wide"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <button
+              className="close"
+              onClick={() =>
+                setGroupsOpen(false)
+              }
+            >
+              ×
+            </button>
+
+            {!selectedGroup ? (
+
+              <>
+
+                <div className="eyebrow">
+                  ESPAÇOS DE TRABALHO
+                </div>
+
+                <h2>
+                  Meus grupos
+                </h2>
+
+                <p className="muted">
+                  Cada grupo possui um ID único e
+                  seu próprio histórico de chat.
+                </p>
+
+                <div className="create-group">
+
+                  <input
+                    value={newGroup}
+                    onChange={(event) =>
+                      setNewGroup(
+                        event.target.value
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter"
+                      ) {
+                        createGroup();
+                      }
+                    }}
+                    placeholder="Nome do grupo"
+                  />
+
+                  <button
+                    className="primary"
+                    onClick={createGroup}
+                  >
+                    Criar grupo
+                  </button>
+
+                </div>
+
+                {groups.length === 0 ? (
+
+                  <div className="empty-state small">
+
+                    <div>
+                      👥
+                    </div>
+
+                    <h3>
+                      Você ainda não possui grupos
+                    </h3>
+
+                    <p>
+                      Crie um grupo para começar
+                      um espaço colaborativo.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  <div className="groups-list">
+
+                    {groups.map(
+                      (group) => (
+
+                        <div
+                          className="group-item"
+                          key={group.id}
+                        >
+
+                          <div className="group-info">
+
+                            <div className="group-avatar">
+                              {group.name
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div>
+
+                              <strong>
+                                {group.name}
+                              </strong>
+
+                              <small>
+                                ID: {group.id}
+                              </small>
+
+                              <small>
+                                Código:{" "}
+                                {group.code}
+                              </small>
+
+                              <small>
+                                {
+                                  group.members
+                                    ?.length || 1
+                                }{" "}
+                                integrante(s)
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                          <div className="group-actions">
+
+                            <button
+                              onClick={() =>
+                                enterGroup(
+                                  group.id
+                                )
+                              }
+                            >
+                              Chat compartilhado →
+                            </button>
+
+                            <button
+                              className="delete-button"
+                              onClick={() =>
+                                deleteGroup(
+                                  group.id
+                                )
+                              }
+                            >
+                              Excluir
+                            </button>
+
+                          </div>
+
+                        </div>
+
+                      )
+                    )}
+
+                  </div>
+
+                )}
+
+              </>
+
+            ) : (
+
+              /* ===========================================
+                 CHAT DO GRUPO
+              =========================================== */
+
+              (() => {
+
+                const group =
+                  groups.find(
+                    (item) =>
+                      item.id === selectedGroup
+                  );
+
+                if (!group) {
+                  return null;
+                }
+
+                return (
+
+                  <div className="group-chat">
+
+                    <div className="group-chat-header">
+
+                      <button
+                        className="back-button"
+                        onClick={leaveGroup}
+                      >
+                        ← Grupos
+                      </button>
+
+                      <div>
+
+                        <div className="eyebrow">
+                          CHAT COMPARTILHADO
+                        </div>
+
+                        <h2>
+                          {group.name}
+                        </h2>
+
+                        <span>
+                          Código do grupo:{" "}
+                          <strong>
+                            {group.code}
+                          </strong>
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                    <div className="group-chat-notice">
+                      💬 Este é o espaço de conversa
+                      compartilhada do grupo.
+                    </div>
+
+                    <div className="group-messages">
+
+                      {!group.chatHistory ||
+                      group.chatHistory.length ===
+                        0 ? (
+
+                        <div className="empty-state small">
+
+                          <div>
+                            💬
+                          </div>
+
+                          <h3>
+                            O chat está vazio
+                          </h3>
+
+                          <p>
+                            Envie a primeira mensagem
+                            para iniciar a pesquisa
+                            colaborativa.
+                          </p>
+
+                        </div>
+
+                      ) : (
+
+                        group.chatHistory.map(
+                          (message) => (
+
+                            <div
+                              className={
+                                `group-message ${
+                                  message.type
+                                }`
+                              }
+                              key={message.id}
+                            >
+
+                              <div className="message-author">
+                                {message.userName}
+                              </div>
+
+                              <div className="message-text">
+                                {message.text}
+                              </div>
+
+                              <small>
+                                {formatDate(
+                                  message.createdAt
+                                )}
+                              </small>
+
+                            </div>
+
+                          )
+                        )
+
+                      )}
+
+                    </div>
+
+                    <div className="group-composer">
+
+                      <textarea
+                        value={groupMessage}
+                        onChange={(event) =>
+                          setGroupMessage(
+                            event.target.value
+                          )
+                        }
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Enter" &&
+                            !event.shiftKey
+                          ) {
+                            event.preventDefault();
+                            sendGroupMessage();
+                          }
+                        }}
+                        placeholder="Escreva uma mensagem para o grupo..."
+                      />
+
+                      <button
+                        className="primary"
+                        onClick={
+                          sendGroupMessage
+                        }
+                        disabled={
+                          !groupMessage.trim()
+                        }
+                      >
+                        Enviar →
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                );
+              })()
+
+            )}
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* ===================================================
+          MODAL SOBRE
+      =================================================== */}
+
+      {aboutOpen && (
+
+        <div
+          className="modal-bg"
+          onClick={() =>
+            setAboutOpen(false)
+          }
+        >
+
+          <div
+            className="modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <button
+              className="close"
+              onClick={() =>
+                setAboutOpen(false)
+              }
+            >
+              ×
+            </button>
+
+            <div className="avatar">
+              L
+            </div>
+
+            <h2>
+              Sobre o Loy
+            </h2>
+
+            <p className="about-text">
+              O Loy é uma plataforma de pesquisa
+              jurídica com inteligência artificial
+              criada para auxiliar estudos, pesquisas
+              acadêmicas e trabalhos na área do Direito.
+            </p>
+
+            <div className="about-warning">
+              <strong>
+                Atenção
+              </strong>
+
+              <p>
+                As respostas são geradas por
+                inteligência artificial e devem ser
+                verificadas nas fontes oficiais.
+                O Loy não substitui orientação jurídica
+                profissional.
+              </p>
+            </div>
+
+            <button
+              className="primary full"
+              onClick={() =>
+                setAboutOpen(false)
+              }
+            >
+              Entendi
+            </button>
+
+          </div>
+
+        </div>
+
+      )}
 
     </div>
   );
@@ -1883,4 +1786,3 @@ createRoot(
 ).render(
   <App />
 );
-```
