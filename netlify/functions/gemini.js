@@ -3,7 +3,6 @@
 const MODEL = "gemini-3.6-flash";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
-// Domínios confiáveis para pesquisa jurídica/acadêmica
 const DOMINIOS_CONFIAVEIS = [
   "planalto.gov.br",
   "stf.jus.br",
@@ -48,8 +47,16 @@ REGRAS OBRIGATÓRIAS:
     return base + `\n7. Foco em explicações didáticas sobre conceitos e princípios de Direito, sempre embasadas em fontes reais.`;
   }
 
-  // juridica (padrão)
   return base + `\n7. Foco em leis, jurisprudência, súmulas e normas jurídicas — nada fora desse escopo.`;
+}
+
+// Garante que "fetch" existe, não importa a versão do Node no ambiente
+async function getFetch() {
+  if (typeof fetch !== "undefined") {
+    return fetch;
+  }
+  const mod = await import("node-fetch");
+  return mod.default;
 }
 
 exports.handler = async (event) => {
@@ -84,13 +91,15 @@ exports.handler = async (event) => {
   if (!API_KEY) {
     console.error("GEMINI_API_KEY não configurada no ambiente.");
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Chave da API não configurada no servidor." }),
+      statusCode: 200,
+      body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
     };
   }
 
   try {
-    const response = await fetch(API_URL, {
+    const doFetch = await getFetch();
+
+    const response = await doFetch(API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -118,10 +127,8 @@ exports.handler = async (event) => {
     if (!response.ok) {
       console.error("Erro da API Gemini:", JSON.stringify(data));
       return {
-        statusCode: 200, // devolve 200 pro frontend não cair no catch genérico
-        body: JSON.stringify({
-          answer: MENSAGEM_FALLBACK,
-        }),
+        statusCode: 200,
+        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
       };
     }
 
@@ -135,7 +142,6 @@ exports.handler = async (event) => {
       }))
       .filter((f) => f.url && fonteConfiavel(f.url));
 
-    // Sem nenhuma fonte confiável -> mensagem padrão
     if (fontesConfiaveis.length === 0) {
       return {
         statusCode: 200,
@@ -152,7 +158,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Anexa as fontes ao final do texto (o frontend só exibe "answer" como bloco único)
     const listaFontes = fontesConfiaveis
       .map((f) => `- ${f.titulo}: ${f.url}`)
       .join("\n");
@@ -164,7 +169,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ answer: texto }),
     };
   } catch (err) {
-    console.error("Erro ao consultar Gemini:", err);
+    console.error("Erro ao consultar Gemini:", err.message, err.stack);
     return {
       statusCode: 200,
       body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
