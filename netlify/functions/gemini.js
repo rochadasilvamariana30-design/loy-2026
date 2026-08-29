@@ -1,8 +1,9 @@
-// netlify/functions/gemini.js
+// netlify/functions/gemini.cjs
 
 const MODEL = "gemini-3.6-flash";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
+// Domínios confiáveis para pesquisa jurídica/acadêmica
 const DOMINIOS_CONFIAVEIS = [
   "planalto.gov.br",
   "stf.jus.br",
@@ -47,132 +48,8 @@ REGRAS OBRIGATÓRIAS:
     return base + `\n7. Foco em explicações didáticas sobre conceitos e princípios de Direito, sempre embasadas em fontes reais.`;
   }
 
+  // juridica (padrão)
   return base + `\n7. Foco em leis, jurisprudência, súmulas e normas jurídicas — nada fora desse escopo.`;
 }
 
-// Garante que "fetch" existe, não importa a versão do Node no ambiente
-async function getFetch() {
-  if (typeof fetch !== "undefined") {
-    return fetch;
-  }
-  const mod = await import("node-fetch");
-  return mod.default;
-}
-
-exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Método não permitido." }),
-    };
-  }
-
-  let query, mode;
-  try {
-    const body = JSON.parse(event.body || "{}");
-    query = body.query;
-    mode = body.mode || "juridica";
-  } catch (e) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Corpo da requisição inválido." }),
-    };
-  }
-
-  if (!query || !query.trim()) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Pergunta vazia." }),
-    };
-  }
-
-  const API_KEY = process.env.GEMINI_API_KEY;
-
-  if (!API_KEY) {
-    console.error("GEMINI_API_KEY não configurada no ambiente.");
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
-    };
-  }
-
-  try {
-    const doFetch = await getFetch();
-
-    const response = await doFetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY,
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: montarInstrucao(mode) }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: query }],
-          },
-        ],
-        tools: [{ google_search: {} }],
-        generationConfig: {
-          temperature: 0,
-        },
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("Erro da API Gemini:", JSON.stringify(data));
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
-      };
-    }
-
-    const candidate = data?.candidates?.[0];
-    const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
-
-    const fontesConfiaveis = groundingChunks
-      .map((chunk) => ({
-        titulo: chunk?.web?.title || "Fonte",
-        url: chunk?.web?.uri || null,
-      }))
-      .filter((f) => f.url && fonteConfiavel(f.url));
-
-    if (fontesConfiaveis.length === 0) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
-      };
-    }
-
-    let texto = candidate?.content?.parts?.map((p) => p.text).join("") || "";
-
-    if (!texto.trim()) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
-      };
-    }
-
-    const listaFontes = fontesConfiaveis
-      .map((f) => `- ${f.titulo}: ${f.url}`)
-      .join("\n");
-
-    texto += `\n\nFontes:\n${listaFontes}`;
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ answer: texto }),
-    };
-  } catch (err) {
-    console.error("Erro ao consultar Gemini:", err.message, err.stack);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
-    };
-  }
-};
+exp
