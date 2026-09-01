@@ -1,6 +1,7 @@
+```js
 // netlify/functions/gemini.cjs
 
-const MODEL = "gemini-3.6-flash";
+const MODEL = "gemini-3.5-flash-lite";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 // Domínios confiáveis para pesquisa jurídica/acadêmica
@@ -21,10 +22,14 @@ const DOMINIOS_CONFIAVEIS = [
 
 function fonteConfiavel(url) {
   if (!url) return false;
-  return DOMINIOS_CONFIAVEIS.some((dominio) => url.includes(dominio));
+
+  return DOMINIOS_CONFIAVEIS.some((dominio) =>
+    url.includes(dominio)
+  );
 }
 
-const MENSAGEM_FALLBACK = "Infelizmente não encontramos esse artigo :(";
+const MENSAGEM_FALLBACK =
+  "Infelizmente não encontramos esse artigo :(";
 
 function montarInstrucao(mode) {
   const base = `
@@ -41,71 +46,111 @@ REGRAS OBRIGATÓRIAS:
 `;
 
   if (mode === "academica") {
-    return base + `\n7. Foco em artigos acadêmicos, doutrina e produção científica sobre Direito.`;
+    return (
+      base +
+      `\n7. Foco em artigos acadêmicos, doutrina e produção científica sobre Direito.`
+    );
   }
 
   if (mode === "outros") {
-    return base + `\n7. Foco em explicações didáticas sobre conceitos e princípios de Direito, sempre embasadas em fontes reais.`;
+    return (
+      base +
+      `\n7. Foco em explicações didáticas sobre conceitos e princípios de Direito, sempre embasadas em fontes reais.`
+    );
   }
 
-  return base + `\n7. Foco em leis, jurisprudência, súmulas e normas jurídicas — nada fora desse escopo.`;
+  return (
+    base +
+    `\n7. Foco em leis, jurisprudência, súmulas e normas jurídicas — nada fora desse escopo.`
+  );
 }
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: "Método não permitido." }),
+      body: JSON.stringify({
+        error: "Método não permitido.",
+      }),
     };
   }
 
-  let query, mode;
+  let query;
+  let mode;
+
   try {
     const body = JSON.parse(event.body || "{}");
+
     query = body.query;
     mode = body.mode || "juridica";
   } catch (e) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "Corpo da requisição inválido." }),
+      body: JSON.stringify({
+        error: "Corpo da requisição inválido.",
+      }),
     };
   }
 
   if (!query || !query.trim()) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "Pergunta vazia." }),
+      body: JSON.stringify({
+        error: "Pergunta vazia.",
+      }),
     };
   }
 
   const API_KEY = process.env.GEMINI_API_KEY;
 
   if (!API_KEY) {
-    console.error("GEMINI_API_KEY não configurada no ambiente.");
+    console.error(
+      "GEMINI_API_KEY não configurada no ambiente."
+    );
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
+      body: JSON.stringify({
+        answer: MENSAGEM_FALLBACK,
+      }),
     };
   }
 
   try {
     const response = await fetch(API_URL, {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": API_KEY,
       },
+
       body: JSON.stringify({
         system_instruction: {
-          parts: [{ text: montarInstrucao(mode) }],
+          parts: [
+            {
+              text: montarInstrucao(mode),
+            },
+          ],
         },
+
         contents: [
           {
             role: "user",
-            parts: [{ text: query }],
+            parts: [
+              {
+                text: query,
+              },
+            ],
           },
         ],
-        tools: [{ google_search: {} }],
+
+        tools: [
+          {
+            google_search: {},
+          },
+        ],
+
         generationConfig: {
           temperature: 0,
         },
@@ -115,54 +160,83 @@ exports.handler = async (event) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Erro da API Gemini:", JSON.stringify(data));
+      console.error(
+        "Erro da API Gemini:",
+        JSON.stringify(data)
+      );
+
       return {
         statusCode: 200,
-        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
+        body: JSON.stringify({
+          answer: MENSAGEM_FALLBACK,
+        }),
       };
     }
 
     const candidate = data?.candidates?.[0];
-    const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
+
+    const groundingChunks =
+      candidate?.groundingMetadata?.groundingChunks || [];
 
     const fontesConfiaveis = groundingChunks
       .map((chunk) => ({
         titulo: chunk?.web?.title || "Fonte",
         url: chunk?.web?.uri || null,
       }))
-      .filter((f) => f.url && fonteConfiavel(f.url));
+      .filter(
+        (f) => f.url && fonteConfiavel(f.url)
+      );
 
     if (fontesConfiaveis.length === 0) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
+        body: JSON.stringify({
+          answer: MENSAGEM_FALLBACK,
+        }),
       };
     }
 
-    let texto = candidate?.content?.parts?.map((p) => p.text).join("") || "";
+    let texto =
+      candidate?.content?.parts
+        ?.map((p) => p.text)
+        .join("") || "";
 
     if (!texto.trim()) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
+        body: JSON.stringify({
+          answer: MENSAGEM_FALLBACK,
+        }),
       };
     }
 
     const listaFontes = fontesConfiaveis
-      .map((f) => `- ${f.titulo}: ${f.url}`)
+      .map(
+        (f) => `- ${f.titulo}: ${f.url}`
+      )
       .join("\n");
 
     texto += `\n\nFontes:\n${listaFontes}`;
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ answer: texto }),
+      body: JSON.stringify({
+        answer: texto,
+      }),
     };
   } catch (err) {
-    console.error("Erro ao consultar Gemini:", err.message, err.stack);
+    console.error(
+      "Erro ao consultar Gemini:",
+      err.message,
+      err.stack
+    );
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ answer: MENSAGEM_FALLBACK }),
+      body: JSON.stringify({
+        answer: MENSAGEM_FALLBACK,
+      }),
     };
   }
 };
+```
