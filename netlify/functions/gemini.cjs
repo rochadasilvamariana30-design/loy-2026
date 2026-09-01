@@ -1,4 +1,3 @@
-```js
 // netlify/functions/gemini.cjs
 
 const MODEL = "gemini-3.5-flash-lite";
@@ -239,4 +238,3 @@ exports.handler = async (event) => {
     };
   }
 };
-```
